@@ -1,0 +1,165 @@
+Class Inheritance
+----------------------
+Its an effective technique for reusing code by basing one class upon another class and customizing behaviors to match usage.
+Base class is a class that has members to be used in one or more derived classes. alias (Super class/ parent class)
+Derived class is a class that's being created or based upon the base class. alias (sub clas/ child class)
+
+Member access specifiers - determines what other objects will be able to access class members.
+_________________________________________________________________________
+|                  Base class       Derived class       Other objects    |
+| public               +                   +                 +           |
+| protected            +                   +                             |
+| private              +                                                 |
+|________________________________________________________________________|
+
+In addition to having access and adding members to a class, derived class may also overload members of its base class.
+Overloaded members are used for changing or customizing certain behaviors of the derived class.
+
+-----------------------------------------------------------------------------------------------------
+- Simple Inheritance
+ex.
+#include <iostream>
+#include <string>
+//Base class
+class Animal {
+    string _name;
+    string _type;
+    string _sound;
+    Animal(){} //private default constructor prevents contruction of base class.
+protected:
+    Animal (const string & n, const string & t, const string & s) : _name(n), _type(t), _sound(s) {}
+    // protected constructor for use by derived class only.
+public:
+    void speak() const;
+    const string & name() const {return _name;}
+    const string & type() const {return _type;}
+    const string & sound() const {return _sound;}
+};
+void Animal::speak() const{
+    printf("%s the %s says %s\n",_name.c_str(),_type.c_str(),_sound.c_str()); // variable of type string returns 'stl-string', so we use variable.c_str()
+}
+
+//derived class
+class Dog : public Animal {      //the access specifier controls how the base class is inherited by the derived class.
+    int walked;
+public:
+    Dog(string n) : Animal(n,"dog","woof"), _walked(0) {};
+    int walk() {return ++_walked;}
+    string latin() const { return name()+"ay";} //if Dog class would have overloaded name(), then to access the base class member we should have used
+                                                // Animal::name()
+};
+Dog d("fluffy");
+d.speak(); //child class accessing the members of parent class
+cout << d.type() <<"with name "<<d.name()<<" makes "<<d.sound()<<" sound"<<endl;
+
+-------------------------------------------------------------------------------------------------------------
+- Friend Class
+Sometimes we want a class or a function to grant access to another class' private variables, to other object or even few selected objects. this is accomplished using 'friend' declaration.
+ex.
+//Base class
+class Animal {
+    string _name;
+    string _type;
+    string _sound;
+    Animal(){} //private default constructor prevents contruction of base class.
+    Animal (const string & n, const string & t, const string & s) : _name(n), _type(t), _sound(s) {}
+    // protected constructor for use by derived class only.
+    
+    friend class Dog; //making Dog friend will give it's object access to private members.
+    friend const string & get_animal_name( const Animal &);
+
+public:
+    void speak() const;
+    const string & name() const {return _name;}
+    const string & type() const {return _type;}
+    const string & sound() const {return _sound;}
+};
+const string & get_animal_name( const Animal & a){
+    return a._name;
+}
+//this concept undermines encapsulation.
+
+---------------------------------------------------------------------------------------------------------------
+- Multiple Inheritance
+Scenario where a child class inherits from multiple base class.
+ex.
+//base class - 1
+class Fur{
+    string _quality;
+    Fur(){}
+protected:
+    Fur(const string & f): _quality(f) {}
+public:
+    const string & quality() const {return _quality;}
+};
+
+//base class - 2 
+class Animal {
+    string _name;
+    string _type;
+    string _sound;
+    Animal(){} //private default constructor prevents contruction of base class.
+protected:
+    Animal (const string & n, const string & t, const string & s) : _name(n), _type(t), _sound(s) {}
+    // protected constructor for use by derived class only.
+public:
+    void speak() const;
+    const string & name() const {return _name;}
+    const string & type() const {return _type;}
+    const string & sound() const {return _sound;}
+};
+
+//derived class
+class Dog : public Animal, public Fur {
+    int walked;
+public:
+    Dog(string n) : Animal(n,"dog","woof"), Fur("silky"), _walked(0) {}
+    int walk() {return ++_walked;} 
+};
+
+------------------------------------------------------------------------------------------------------------
+- Polymorphism (one entity multiple forms)
+Overloading a function of base class by a derived class is a phenomenon of polymorphism.
+ex.
+//base class
+class Animal {
+    string _name;
+    string _type;
+    string _sound;
+    Animal(){} //private default constructor prevents contruction of base class.
+protected:
+    Animal (const string & n, const string & t, const string & s) : _name(n), _type(t), _sound(s) {}
+    // protected constructor for use by derived class only.
+public:
+    void speak() const;
+    const string & name() const {return _name;}                | virtual void speak() const;
+    const string & type() const {return _type;}                |
+    const string & sound() const {return _sound;}              |
+                                                               | virtual ~Animal(){}
+};
+void Animal::speak() const {
+    printf("%s the %s says %s\n",_name.c_str(),_type.c_str(),_sound.c_str()); 
+}
+//derived class
+class Dog : public Animal, public Fur {
+    int walked;
+public:
+    Dog(string n) : Animal(n,"dog","woof"), Fur("silky"), _walked(0) {}
+    int walk() {return ++_walked;}
+    void speak() const {Animal::speak(); puts("purrrrrrr");} 
+};
+
+Dog d("fluffy");
+Cat c("blacky");
+d.speak(); //will invoke the derived class speak() method.
+
+Animal *ap[] = {&d, &c};
+for(auto p : ap){
+    p->speak(); //this will call the Animal version of speak() and not the dog version of speak(), because its declared as animal pointer
+                //and even though we take address of dog class' object its still considered as animal class.
+                //TO AVOID this, declare speak() as "virtual" in base class. ex.     virtual void speak() const;
+                // this tells the compiler that the member function may be overloaded in derived classes.
+                // whenever you use a `virtual` qualifier in a class, you need to also declare a virtual destructor in base class.ex.  virtual ~Animal(){} 
+                //this is because if i overload this function of a base class, i'm doing things in derived class that requires a different destructor. 
+}
+

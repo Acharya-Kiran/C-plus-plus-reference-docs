@@ -1,0 +1,272 @@
+- Classes & Objects
+---------------------------------
+struct has its members declared public by default, whereas the class has its members declared private by default.
+The data members of a class are usually declared private so as not provide direct access of data members to the object( encapsulation ).
+Its accessed by object interface via function members/methods that are public.
+
+Coding standards - 
+// The class is declared with its data and function members in '_.h' file.
+ex. 
+class c1{
+    int i = 0;
+public :
+    void setval( const int & );
+    int getval() const; //here 'const' is a part of the signature of the method
+};
+
+// The definition of the methods/function members is usually in '_.cpp' file.
+ex.
+void c1::setval(const int & value) {
+    i = value;
+}
+int c1::getval() const {
+    return i;
+}
+
+// The main call is usually in 'main.cpp' or other files.
+int main() {
+    const int i = 47;
+    c1 o1;
+    o1.setval(i);
+    printf("value is : %d\n",o1.getval());
+    return 0;
+}
+
+----------------------------------------------------
+- Data Members
+Its a good practice to use struct when there are only data members and to use class when there are function members.
+Data members are by default public in struct and private in class.
+Function members used to access private data members of a class are called 'accessors', includes setters and getters.
+
+-Function members
+Any method that is called on a const-qualified object must be const-safe.
+
+-----------------------------------------------------
+-Constructors & Destructors
+These are special member functions served to create and destroy objects of a class repectively.
+when a object is defined, the implicit constructor is called. The object is destoyed after main is executed with the help of implicit destructor.
+implicit constructor, implicit destructor, copy constructor, copy operator are all implicit methods included in any class even if we have not defined them.
+ex.
+c1 o1; //implicit constructor
+c1 o2 = o1; //copy contructor
+c1 o3;
+o3 = o1; //copy operator
+
+class Animal{
+    string _type = "";
+    string _name = "";
+    string _sound = "";
+public:
+    Animal(); //default constructor takes no arguments
+    Animal(const string & type,const string & name,const string & sound); //parameterized constructor
+    Animal(const Animal &); //copy constructor
+    Animal & operator = (const Animal &); //copy operator
+    ~Animal(); //destructor
+
+-Explicit contructors
+when you want only a specific constructor with params to be called, you can specify default contructor in private section of a class.
+Implicit conversions can happen when you have a constructor with only one argument.
+i.e. 
+class c1{
+    int _value = 0;
+    c1();
+public:
+    c1(const int & value):_value(value) {}
+};
+c1 o1 = 'x'; //will be acceptable. _value will be ascii of 'x' = 120.
+
+to avoid this, use `explicit` keyword.
+ex. explicit c1(const int & value): _value(value) {}
+
+--------------------------------------------------------------
+-Namespaces
+as we begin to use more classes, the possibility of naming collision increases. Namespaces in C++ is a great tool for managing this.
+Typically they are defined in header files, along with the class definition that use them.
+ex.
+
+namespace bw {
+
+    const std::string prefix = "(bw::string)";
+
+    class string{
+        std::string _s = "";
+	string();
+    public:
+	string (const std::string & s): _s(prefix+s) {}
+	const char * c_str() const {return _s.c_str();}
+	operator std::string & () {return _s;}
+	operator const char * () const {return _s.c_str();}
+    };
+
+}; //namespace bw
+
+int main(){
+    const std::string s1("This is a string");
+    std::puts(s1.c_str()); // This is a string
+    const bw::string s2(s1);
+    std::puts(s2); // (bw::string) This is a string
+}
+
+-----------------------------------------------------------------
+-Self-referencing Pointer
+Object member function in C++ makes use of keyword - 'this' to provide a pointer to current object. 'this' pointer is commonly used for referring
+to members of a called object. 'this' pointer stores the adress of the called object.
+
+-----------------------------------------------------------------
+-Operator overloading
+two ways to achieve it,
+(i) with member functions as a part of class definition
+ex.
+class Rational{
+    int _n = 0;
+    int _d = 1;
+public:
+    Rational (int numerator=0, int denominator=1) : _n(numerator), _d(denominator) {};
+    Rational (const Rational &rhs) : _n(rhs._n), _d(rhs._d) {}; //copy constructor
+    ~Rational ();
+    int numerator() const {return _n}; 
+    int denominator() const {return _d};
+    Rational & operator = (const Rational &);
+    Rational operator + (const Rational &) const;
+    Rational operator - (const Rational &) const;
+    Rational operator * (const Rational &) const;
+    Rational operator / (const Rational &) const;  
+};
+
+Rational & Rational::operator = (const Rational & rhs){
+    if( this != &rhs ){
+        _n = rhs.numerator();
+	_d = rhs.denominator();
+    }
+    return *this;
+}
+
+Rational Rational::operator + (const Rational & rhs){
+    return Rational((_n*rhs._d)+(_d*rhs._n),_d*rhs._d);
+}
+
+(ii) Non-member functions
+//operator overloading when done with member functions, expect the first operand to be of type of the class in which it is defined.
+ex.
+Rational a = 7;
+cout << a+14; //21, here 14 is converted to type Rational by virtue of implicit constructor.
+cout << 14+a; // ERROR, here a is tried to be converted as int. to make this work you need to take operator overload out of the class.
+ex.
+
+Rational operator + (const Rational & lhs, const Rational & rhs){
+    return Rational((lhs.numerator()*rhs.denominator())+(rhs.numerator()*lhs.denominator()),lhs.denominator()*rhs.denominator());
+}
+
+Rational a = 7;
+cout << 14+a; //21, here 14 is converted into Rational object by implicit constructor.
+
+--------------------------------------------------------------------------------------------------
+-Conversion Operators (Conversion function / overloading a cast operator)
+used for casting your class to another type.
+ex.
+#include <string>
+class Rational{
+    int _n = 0;
+    int _d = 1;
+public:
+    Rational (int numerator=0, int denominator=1) : _n(numerator), _d(denominator) {};
+    Rational (const Rational &rhs) : _n(rhs._n), _d(rhs._d) {}; //copy constructor
+    ~Rational ();
+    int numerator() const {return _n}; 
+    int denominator() const {return _d};
+    Rational & operator = (const Rational &);
+    Rational operator + (const Rational &) const;
+    Rational operator - (const Rational &) const;
+    Rational operator * (const Rational &) const;
+    Rational operator / (const Rational &) const;  
+    operator std::string () const;
+};
+
+Rational::operator std::string () const {
+    if(_d==1) return std::string(_n);
+    else return std::string(_n)+"/"+std::string(_d);
+}
+
+std::ostream & operator << (std::ostream & o, const Rational & r){
+    return o << std::string(r);
+}
+
+Rational b(5,3);
+string s = "Rational value is:";
+s+=b;
+cout << s <<endl; //Rational value is 5/3
+
+----------------------------------------------------------------------------------------
+-Increment and Decrement operator
+ex.
+class num{
+    int value = 0;
+public:
+    num(int x=0): value(x) {}
+    int getvalue() const {return value;}
+    void setvalue(int x) {value=x;}
+    num & operator ++ (); //prefix operator
+    num operator ++ (int); //postfix operator, here 'int' is a dummy value to tell the compiler that its a postfix version.
+};
+
+num & num::operator ++ () {
+    cout<<"pre-increment";
+    value+=1;
+    return *this;
+}
+
+num num::operator ++ (int) {
+    cout<<"post-increment";
+    num temp = *this;
+    value += 1;
+    return temp;
+}
+
+-----------------------------------------------------------------------------------------
+-Allocating & De-allocating object memory
+`new` and `delete` operators are used for the same. Sometimes you need to create an object and use it beyond the lifetime of a
+function or a block and destroy it later.
+ex.
+#include <cstdio>
+#include <new>
+class c1 {
+    int _a = 0;
+    int _b = 0;
+public:
+    c1(int i=0);
+    ~c1();
+    int a() {return _a;}
+    int b() {return _b;}
+};
+c1::c1(int i) : _a(i),_b(i+1),_c(i+2) {
+    puts("c1 constructor");
+}
+c1::~c1() {
+    puts("c1 destructor");
+}
+int main(){
+    try{                                             |  c1 *o1 = new(nothrow) c1;
+	c1 *o1 = new c1;                             |  if(o1==nullptr) {
+	printf("o1 : %d %d \n",o1->a(),o1->b());     |	    puts("new c1 failed");
+	delete o1;                                   |      return 1; //error return code for main
+    } catch (std::bad_alloc & ba){                   |  }
+	printf("new c1 failed: %s\n",ba.what());     |  printf("o1 : %d %d \n",o1->a(),o1->b());
+	return 1;                                    |  delete o1;
+    }
+    return 0;
+}
+
+----------------------------------------------------------------------------------------------
+-Functors 
+By overloading the function operator in a class we can create its object that operates as if it were a function, this pattern is often called Functor.
+Useful when we want to keep state or other context info within our function calls.
+ex.
+class MultBy {
+    int mult = 1;
+    MultBy();
+public:
+    MultBy (int n): mult(n) {}
+    int operator () (int n) const {return mult*n;}
+};
+const MultBy times4(4);
+cout<<times4(5)<<endl; //20

@@ -1,0 +1,17 @@
+Smart Pointer
+----------------------------------------
+is a template class that uses operator overloads to provide functionality of a pointer, while providing improved memory management & safety.
+ex.
+T * f();  //Bare c-pointer
+the function f() returns a pointer of type T. but what to do with this pointer after am done with it, is it static or allocated memory,
+should 'delete' or 'free' be used, or some other function will free the memory, there's no way of knowing this. 
+such a situation leads to memory leaks.
+
+The smart pointer classes are defined in,  '' #include <memory> '' header.
+Smart pointers were introduced in C++ 11.
+
+Types:
+------------------------------------------
+- Unique Pointer
+
+
