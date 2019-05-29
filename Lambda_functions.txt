@@ -1,0 +1,97 @@
+-----------------------------------------------
+============= Lambda Functions ================
+-----------------------------------------------
+
+These are anonymous function (function without a name) with the ability to refer to identifiers outside its own scope. Available from C++ 11.
+Closure is an encapsulated block of code. A lambda function creates a closure. when you assign or pass a lambda, you pass a closure.
+
+//filename : lambda.cpp
+
+#include <cstdio>
+#include <locale>
+#include <algorithm>
+using namespace std;
+
+constexpr size_t _maxlen = 128;
+
+class ftitle {
+    char lastc;
+public:
+    ftitle() : lastc(0) {}
+    char operator () (const char & c);
+};
+
+char ftitle::operator() (const char & c) {
+    const char r = (lastc == " " || lastc == 0) ? toupper(c) : tolower(c);
+    lastc = c;
+    return r;
+}
+int main() {
+    char s[] = "big light in sky";
+    transform(s, s + strnlen(s,_maxlen), s, ftitle());  //ftitle is a functor (class with function operator overloaded)
+    puts(s); //Big Light In Sky
+
+//------we can use a lambda if that function is to be used once. i.e. define inline function instead of func call
+    char lastc = 0;
+    transform(s, s + strnlen(s,_maxlen), s, [&lastc](const char & c) -> char{const char r = (lastc == " " || lastc == 0) ? toupper(c) : tolower(c);lastc = c;return r;});    
+                                            -------- -------------   --  ---
+                                              (1)        (2)         (3)  (4)
+//----(1) its called a capture. here its capturing a reference to lastc variable. this indicates it can use it in its function.
+//----(2) parameter list.
+//----(3) function return operator
+//----(4) func return type
+	
+    return 0;
+
+}
+
+lambdas are used when you would use either a function or a functor, conditioned its needed temporarily.
+
+
+============================================== Captures ====================================================================
+
+//lambda syntax :  []() -> type{}
+//----Inside the square brackets in lambda function, you specify which outside variables will be available to the lambda & how they will be accessed.
+//---- [] - capture operator
+
+different types of captures,
+____________________________________________________________________________________________
+[var]         Capture var by value
+[&var]        Capture var by reference
+[=]           Capture all variables by value                        |
+[&]           Capture all variables by reference                    |   all variables in the scope the lambda func is contained in.
+[&,var]       Capture all by reference, except capture var by value |
+[&var, var2]  Capture var by ref & var2 by value
+____________________________________________________________________________________________
+
+ex.
+int main() {
+char s[] = "hello dude";
+char lastc = 0;
+transform(s,s+strnlen(s,_maxlen),s, [=](const char & c) -> char{const char r = (lastc == " " || lastc == 0) ? toupper(c) : tolower(c);lastc = c;return r;});    
+//---------here lambda func will throw error. bcoz here copy of variables are passed into lambda same as function call. and the error arises when the lambda
+//---------func tries to make changes to passed variable.	
+//--------- we use `mutable` modifier right before func return operator to avoid this error.
+
+//ex. [=](const char & c) mutable -> char{const char r = (lastc == " " || lastc == 0) ? toupper(c) : tolower(c);lastc = c;return r;}
+                         --------
+//--------- This allows the lambda to modify any outside variables captured by copy.
+
+}
+
+
+============================================= Polymorphic Lambdas ===========================================================
+
+ex.
+int main() {
+    long n = 42;
+
+    auto fp = [](const auto & n) -> auto { return n * 4; };
+
+//------- a function pointer with a lambda func that deduces the type of its params and return value from the type of passed value.
+//------- this is a type of polymorphism that works in C++ 14, with the help of `auto` keyword.
+
+    auto x = fp(n);
+    
+    
+}

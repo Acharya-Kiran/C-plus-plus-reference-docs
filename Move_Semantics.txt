@@ -1,0 +1,262 @@
+---------------------------------------------------------------------------------------------------------
+===================================== Move Semantics ====================================================
+---------------------------------------------------------------------------------------------------------
+added to the language with C++ 11 standard.
+
+----------------------------without move semantics
+ex.
+T f(T o) {return o;}
+  ------        ---
+    (1)          (2)
+T b = f(a);
+   ------
+    (3)
+
+//  (1) this function uses call by value which means when the function is called, an object must be constructed to be used by the function.
+//this object has the scope of the function so its considered temporary.
+//  (2) this fuction also returns by value which means another new value is constructed for the return value.
+
+// (3)
+//here when a new object created for return value is returned, a copy constructor is called to copy the contents of the returned object to the new object b.
+//after the function completes the temporary object used as return value goes out of scope and is destroyed.
+
+//copy constructor
+T::T(T & old){
+    reset();                //it must first initialize the new object.
+    copy_data(_a, old._a);  //
+    copy_data(_b, old._b);  // copy the relevant data from old to new object.
+    copy_data(_c, old._c);  //
+}
+Depending on the class, perhaps its a container with lot of data. this could represent a substantial amount of time & memory usage.
+
+----------------------------with move semantics
+//move constructor
+T::T(T && old){
+    reset();                //it must first initialize the new object.
+    _a = std::move(old._a);  //
+    _a = std::move(old._a);  // copy the relevant data from old to new object.
+    _a = std::move(old._a);  //
+    old.reset();
+}
+It reassociates the data with the object & hence no copy takes place at all. this is accomplished using a rvalue reference.
+
+T & x  -------------------- lvalue reference
+T && y -------------------- rvalue reference
+distingush : rvalue can be moved whereas lvalue cannot.
+
+It create a number of significant opportunities for games in both efficiency and memory usage.
+
+
+==================================================== lvalues & rvalues ===================================================================
+
+A rvalue can be moved and lvalue cannot be. rvalue always comes on the right hand side of an expression.
+
+a temporary value that is ready to expire (also called xvalue or expiring value, typically a nameless value like a result of an expression).
+ex. x = a + b; //here 'a+b' is expiring value.
+
+a literal value is called a pure rvalue (or prvalue). this category includes literal values & anything returned from a function that is not a reference.
+ex. x = 42; //'42' is a literal value here.
+
+the data of all these categories fall under 'rvalues' i.e. it can be moved.
+
+
+========================================================= std::move =======================================================================
+
+C++ standard template library provides a template function called move, it's used to tell the compiler to use an object as if it were an rvalue,
+and then to move that value from a source loc to its destination loc without having to use copy.
+
+//filename : vector_test.cpp
+
+#include <cstdio.h>
+#include <vector>
+#include <string>
+#include <utility>   //defines move
+using namespace std;
+
+void message(const string & s){
+    puts(s.c_str());
+    fflush(stdout);
+}
+void disp_t(vector<string> & v){
+    if(v.empty()){
+	puts("[empty]");	
+    } else {
+	for(string s : v) printf("%s ",s.c_str());
+	puts("");
+    }
+    fflush(stdout);
+}
+
+template <typename T>
+void swap(T & a, T & b){
+    message("swap()");
+    T _tmp(std::move(a));
+    a = std::move(b);
+    b = std::move(_tmp);
+}
+
+int main(){
+
+    vector<string> v1 = {"one","two","three","four","five"};
+    vector<string> v2 = {"six","seven","eight","nine","ten"};
+    auto v3 = std::move(v1);
+    disp_t(v1); //[empty]
+    disp_t(v2); //six seven eight nine ten
+    disp_t(v3); //one two three four five
+
+    ::swap(v1,v2); //runs the swap defined in current scope.
+    std::swap(v1,v2); //runs the swap function in standard library. this also uses move() within.
+
+}
+
+
+===================================================== move constructor ===============================================================
+
+In order to take advantage of move semantics in our own classes we need to use `move constructor`.
+a class uses `copy constructor` by default if `move constructor` is not implemented.
+
+//filename : Rational.cpp
+
+#include <cstdio>
+#include <string>
+#include <utility>   
+
+void message(const char * s){
+    puts(s);
+    fflush(stdout);
+}
+class Rational {
+    int _n = 0;
+    int _d = 1;
+    static const int _bufsize = 128;
+    mutable char * _buf = nullptr;
+public:
+    Rational() { reset(); message("default ctor"); }
+    Rational(const int & numerator) : _n(numerator), _d(1) {message("int ctor");}
+    Rational(const int & numerator, const int & denominator) : _n(numerator), _d(denominator) {message("int,int ctor");}
+    Rational(const Rational & other) : _n(other.n), _d(other.d) { message("copy ctor");}
+
+    Rational(Rational &&) noexcept;   //move constructor declaration. `noexcept` keyword prevents exceptions from leaving the object in unknown state.
+                                      //compiler might ignore `move`constructor` if declared without `noexcept`, which makes it mandate while using move ctor.	
+
+    ~Rational();
+    void reset();
+    Rational & operator = (const Rational &); //overloaded assignment operator
+    ...
+};
+
+Rational::Rational(Rational && rhs) noexcept{   //we use rvalue reference as param coz we use std::move() to pass the parm while func call.
+    message("move ctor");
+    _n = std::move(rhs._n);
+    _d = std::move(rhs._d);
+    rhs.reset();
+}
+
+Rational::~Rational() {
+    message("dtor");
+    reset();
+}
+void Rational::reset() {
+    _n=0; _d=1;
+    if(_buf) delete [] _buf;
+    _buf = nullptr;
+}
+
+Rational f(Rational o){
+    return o;
+}
+...	
+int main() {
+Rational a = 7;  //int ctor
+Rational b(5,3); //int,int ctor
+Rational c = b;  //copy ctor
+Rational d;      //default ctor
+
+Rational d = std::move(c); //will call `copy constructor` by default when there is an equal sign, if your class does not
+                           //support move semantics i.e. `move constructor` is not defined for a class.
+	//--------------here c is not rvalue compatible, what std::move() will actually do is it'll take the reference of c and type cast it to
+        //--------------rvalue reference in template def. ex. Rational d = (Rational &&)c ;
+        //--------------but its better to use `std::move` as it'll ensure that it works under more circumstances than it would otherwise.
+
+Rational e = f(c); //when the function call happens it calls the copy ctor by default coz of equal sign.
+                   //when the value is returned i.e. a `rvalue`, move ctor is called.
+}
+
+
+============================================= move assignment operator ==========================================================
+
+its also an important part for supporting move semantics in your code.
+in previous example,
+
+d = c; 
+or                    //regular overloaded assignment operator will be called, coz move assignment operator isn't defined.         
+d = std::move(c);     // that means even after using `std::move` the value c is copied into d and not moved.
+
+//move assignment operator,
+
+-----------declaration within class:
+Rational & operator = (Rational &&) noexcept; 
+
+-----------definition
+Rational & Rational::operator = (Rational && rhs) noexcept {
+    message("op move = ");
+    if(this!=&rhs){
+        _n = std::move(rhs._n);
+        _d = std::move(rhs._d);
+        rhs.reset();	
+    }
+    return *this;
+}
+
+// now `d = std::move(c);` will invoke move assignment operator.
+
+
+================================================== copy & swap idiom ============================================================
+
+This is used to optimize the normal overloaded assignment operator in a class. The `copy & swap idiom` uses a class's existing copy ctor and dtor methods to provide 
+additional efficiency for the copy assignment operator.
+
+//swap method
+
+-----declaration in class,
+void swap(Rational &);
+
+-----definition
+void Rational::swap(Rational & o) {
+    std::swap(_n,o._n);
+    std::swap(_d,o._d);
+}
+
+we'll use this func in our regular assignment operator overloaded func.
+
+//overloaded assignment operator
+
+------declaration within class,
+Rational & operator = (Rational);
+
+------definition
+Rational & Rational::operator = (Rational rhs) {        //we pass a temporary object as func param, swap happens on temp obj and its destroyed after the function scope.
+    message("copy & swap");
+    swap(rhs);
+    return *this;
+}
+
+having this definition will conflict the move assignment operator. i.e. error would be thrown for, b = std::move(a);
+you can get rid of `move assignmnet operator methods` when used `copy & swap`.
+
+
+==================================================== rule of five / four ===========================================================
+
+class that uses either of these methods should define all three inorder to manage data correctly as their default versions may not do data 
+managing appropriately.
+ 
+                           Normal class                                  class supporting `move semantics`
+      ____________________(rule of three)_____________________________________(rule of five / four)__________________________________________
+
+//destructor                ~ Class();                                         ~ Class();
+//copy ctor                 Class( Class & );                                  Class( Class & );
+//move ctor                                                                    Class( Class && );
+//copy assign op            Class & operator = ( Class & );                    Class & operator = ( Class & );      |    Class & operator = (Class) //copy & swap
+//move assign op                                                               Class & operator = ( Class && );     |
+
+______________________________________________________________________________________________________________________________________________

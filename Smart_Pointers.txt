@@ -10,8 +10,313 @@ such a situation leads to memory leaks.
 The smart pointer classes are defined in,  '' #include <memory> '' header.
 Smart pointers were introduced in C++ 11.
 
+example used:
+-------------------------------------------------------
+//filename : strc.h 
+
+#ifndef __STRC_H_
+#define __STRC_H_
+
+#include <cstddef>
+
+constexpr const char * __strc_class = "strc";
+constexpr const char * __strc_version = "1.1";
+constexpr size_t _maxlen = 10240;
+
+class strc {
+    char * data = nullptr;
+    void msg(const char *);
+public:
+    strc();
+    strc(const char * s);
+    strc(const strc &);
+    strc(strc &&);
+    ~strc();
+    strc & operator = (strc);
+    const char * value() const;
+    operator const char * () const;
+    void swap(strc &);
+};
+
+#endif //__STRC_H_
+------------------------------------------------------------
+//filename : strc.cpp
+
+#include "strc.h"
+#include <cstdio.h>
+#include <cstring>
+#include <utility>
+#include <memory>
+
+void strc::msg(const char * s) {
+    if(data) printf("%s: %s (%s)\n",__strc_class, s, data);
+    else printf("%s: %s\n",__strc_class, s);
+    fflush(stdout);
+}
+
+strc::strc() : data(nullptr) {
+    msg("default constructor");
+}
+
+strc::strc(const char * s) {
+    size_t slen = strnlen(s,_maxlen);
+    data = new char[slen + 1];
+    data[slen] = 0;
+    memcpy(data, s, slen);
+    msg("string constructor");
+}
+
+strc::strc(const strc & f) {
+    size_t slen = strnlen(f.data, _maxlen);
+    data = new char[slen + 1];
+    data[slen] = 0;
+    memcpy(data, f.data, slen);
+    msg("copy constructor");
+}
+
+strc::strc(strc && o) {
+    data = std::move(o.data);
+    o.data = nullptr;
+    msg("move constructor");
+}
+
+strc::~strc() {
+    msg("destructor");
+    delete[] data;
+}
+
+strc & strc::operator = (strc o) {
+    swap(o);
+    msg("copy and swap =");
+    return *this;
+}
+
+const char * strc::value() const{
+    return data;
+}
+
+strc::operator const char * () const{
+    return value();
+}
+
+void strc::swap(strc & o){
+    msg("strc swap");
+    std::swap(this->data, o.data);
+}
+
+----------------------------------------------
+
 Types:
-------------------------------------------
-- Unique Pointer
+
+============================================ Unique Pointer ========================================================
+
+is a type of smart pointer that cannot be copied, so we cannot make copies of it and there's never any doubt of who owns it.
+
+// filename : unique.cpp
+
+#include <cstdio>
+#include <memory>
+#include <utility>
+#include "strc.h"
+
+void message( const char * s){
+    printf("\n%s\n",s);
+    fflush(stdout);
+}
+
+void disp(std::unique_ptr<strc> & o){
+    if(o) puts(o->value());
+    else puts("null");
+    fflush(stdout);
+}
+int main() {
+
+message("create unique pointer one");
+std::unique_ptr<strc> a(new strc("one")); //strc: cstring constructor (one)
+disp(a); //one
+
+message("create unique two");
+auto b = std::make_unique<strc>("two"); //strc: cstring constructor (two)
+disp(a); //one
+disp(b); //two
+
+message("reset a to three");
+a.reset(new strc("three")); //strc: cstring constructor (three)
+                            //strc: destructor (one)
+//first creates a new object and then calls the destructor.
+disp(a); //three
+disp(b); //two
+
+message("move b to c");
+auto c = std::move(b);
+disp(a); //three
+disp(b); //null
+disp(c); //two
+
+a.reset(); 
+disp(a); //null
+
+c.release();
+disp(c); //null
+
+// if you want to pass this pointer to a function, then you should pass the reference as passing by value creates a copy in function stack which
+// raises error and defeats the purpose of unique pointer.
 
 
+========================================= Shared Pointer ===================================================
+
+works same like a unique pointer with a difference that it can be shared. It provides a limited garbage collection facility for managing the number of pointers to the same object.
+Its a most commonly used smart pointer, its very efficient, easy to use and makes managing shared memory resources relatively simple.
+
+//filename : shared.cpp
+
+#include <cstdio.h>
+#include <memory>
+#include "strc.h"
+
+void message( const char * s){
+    printf("\n%s\n",s);
+    fflush(stdout);
+}
+
+void disp(std::shared_ptr<strc> & o){
+    if(o) printf("%s (%ld)\n",o->value(),o.use_count()); //value along with reference count
+    else puts("null");
+    fflush(stdout);
+}
+int main() {
+
+message("create pointer with one");
+auto a = std::make_shared<strc>("one");   //strc: cstring constructor (one)
+disp(a);                                  // one (1)
+
+//------ as we make copies of a smart pointer, the reference count increases and when the reference count gets down to zero, it calls the destructor and frees 
+//------ the memory.
+
+std::shared_pointer<strc> b(new strc("two")); //strc: cstring constructor (two)
+disp(b);                                      // two (1)
+
+message("reset a to three");
+a.reset(new strc("three")); //strc: cstring constructor (three)
+ 			    //strc: destructor (one)
+disp(a);                    // three (1)
+
+message("b = a");
+auto c = a;       //copy constructor
+disp(a);          //three (2)
+disp(b);          //two (1)
+disp(c);          //three (2)
+
+message("end of scope");
+return 0;                  //strc: destructor (two)
+                           //strc: destructor (three)
+			   //Program ended with exit code: 0
+}
+
+
+================================================ Weak Pointer ===============================================================
+
+Its a special case of shared pointer. a Weak pointer is not counted in the shared pointers reference count. This is useful when you may need a pointer that
+doesn't effect the lifetime of the resource it points to and doesn't effect the reference count of shared pointer.
+
+//filename : weak.cpp
+
+#include <cstdio.h>
+#include <memory>
+#include "strc.h"
+
+void message( const char * s){
+    printf("\n%s\n",s);
+    fflush(stdout);
+}
+
+void disp(std::shared_ptr<strc> & o){
+    if(o) printf("%s (%ld)\n",o->value(),o.use_count()); //value along with reference count
+    else puts("null");
+    fflush(stdout);
+}
+
+void disp(const std::weak_ptr<strc> & o){
+    //must get a lock to use a weak pointer
+    // from a weak pointer i can get a use count but i cannot get the value without first getting what's called a lock.
+    //lock returns a shared pointer, from which then you can get the value.
+    size_t count = o.use_count();
+    if(auto sp = o.lock()) printf("%s (w:%ld s:%ld)\n",sp->value(),count,sp.use_count());
+    else puts("[null]");
+    fflush(stdout);
+}
+
+int main() {
+
+message("create shared pointer");
+auto a = std::make_shared<strc>("thing");   //strc: cstring constructor (thing)
+
+message("make several copies");
+auto c1 = a;
+auto c2 = a;
+auto c3 = a;
+auto c4 = a;
+auto c5 = a;
+
+disp(a);           //thing (6)
+
+auto w1 = std::weak_ptr<strc>(a);
+disp(w1);         // thing (w:6,s:7) shared count goes upto 7 coz of the lock() in disp method, and when the shared pointer goes out of scope it gets back to 6.	
+
+//----Its commonly used in case where you need to prevent circular reference.
+
+}
+
+===================================== Custom deleter ====================================================
+
+sometimes when destroying a smart pointer, you would want to destroy more than a managed object. for such circumstance you may define a custom deleter.
+	
+//filename : custom_deleter.cpp
+
+#include <csdtio.h>
+#include <memory>
+#include "strc.h"
+
+void message( const char * s){
+    printf("\n%s\n",s);
+    fflush(stdout);
+}
+
+void disp(std::shared_ptr<strc> & o){
+    if(o) printf("%s (%ld)\n",o->value(),o.use_count()); //value along with reference count
+    else puts("null");
+    fflush(stdout);
+}
+
+void deleter(const strc * o){
+    printf("deleter:");
+    if(o) {
+	printf("%s\n",o->value());
+	delete(o);                    //delete operator to free the memory for the pointer & this in turn will call the destructor in the object.
+    } else {
+	printf("[null]\n");
+    }
+    fflush(stdout);
+}
+int main(){
+
+message("create shared pointer");
+std::shared_ptr<strc> a(new strc("thing"), deleter); //define a custom deleter
+      //we cannot use a make shared func if you want to specify a custom deleter. deleter param may be a class as a functor, a function pointer or a lambda closure.
+disp(a);   //strc: cstring constructor (thing)
+           //thing (1)
+a.reset(); //deleter: thing
+           //strc: destructor (thing)
+disp(a);   //[null]
+
+message("end of scope");
+return 0;
+}
+
+
+======================================= Choosing a Smart pointer =============================================
+
+std::unique_ptr  - used when you need to know that a resource is only available to one object at a time.
+std::shared_ptr  - used by default. acts as an unmanaged pointer.
+std::weak_ptr    - used in circumstances where you need a optional value i.e. you don't need a pointer to be valid, i.e. to know if a pointer is or not valid.
+                   also useful to break circular references.

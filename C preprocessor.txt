@@ -1,0 +1,4 @@
+-----------------------------
+====== C preprocessor =======
+-----------------------------
+It provides additional capabilities for both C and C++.
