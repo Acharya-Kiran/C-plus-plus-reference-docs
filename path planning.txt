@@ -1,0 +1,43 @@
+ Path planning is basically a combination of Behaviour Planning, Prediction and Trajectory Planning.
+
+- Behavior Planner :
+	Takes input the Map, Route to destination & Predictions about what other static and dynamic obstacles are likely to do and produces output, the 
+	suggested maneuver for the vehicle which the trajectory planner is responsible for reaching collision-free, smooth and safe.
+
+	***
+	The Prediction model updates with a higher frequency compared to Behavior.
+	The Trajectory Planner upates with a higher frequency compared to Prediction.
+	***
+
+	Responsibilities :
+	- Suggest states/maneuvers which are,
+		Feasible
+		Safe
+		Legal
+
+	1. Finite State Machines :
+		It makes decisions based on finite set of discrete states.
+		There can be transitions from one state to many others and also from one state to itself i.e. Self-Transition.
+		There can be states with no transitions to other states i.e. Accepting State.
+		
+		This takes a Input( Map, Predictions, Speed limit, Localization data, Current state ) which is then passed to the Transition function 
+		which uses the input to decide on the transition to make next.
+		
+		Ex. states for a SDC on a Highway
+			- Keep Lane	: stay on the lane
+			- Change Lane Right / Left	: move right/left
+			- Prepare Lane change right/ left : attempt to match position and speed of the gap in lane, activate turning signal
+
+		The decisions to the states can be made based on `Cost Functions`.
+		ex.
+		- speed cost
+		- lane cost
+			
+- Trajectory Generation
+	- Configuration Space : representation of robot in a world.
+	- Algorithm properties :
+		Completeness
+		Optimality
+		
+	- Motion Planning Algorithms :-
+		
